@@ -6,7 +6,7 @@ from google.cloud import bigquery
 
 PROJECT = "mightyhive-data-science-poc"
 DATASET = "data_drift_demo"
-TABLE_NAME = "serving"
+TABLE_NAME = "prediction"
 TABLE_ID = f"{PROJECT}.{DATASET}.{TABLE_NAME}"
 
 

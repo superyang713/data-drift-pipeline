@@ -1,0 +1,8 @@
+joblib
+pandas
+scikit-learn
+flask>=1.0.2
+google-cloud-storage
+google-cloud-bigquery
+google-cloud-bigquery-storage
+pyarrow

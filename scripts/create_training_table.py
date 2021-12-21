@@ -36,6 +36,5 @@ def create_training_table(start: str, end: str):
     print("Query results loaded to the table {}".format(TABLE_ID))
 
 
-
 if __name__ == '__main__':
     create_training_table()

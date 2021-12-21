@@ -1,0 +1,144 @@
+main:
+  params: [args]
+  steps:
+    - initialize:
+        assign:
+          - uri: ${args.uri}
+          - bucket: ${args.bucket}
+          - blob: ${args.blob}
+    - validateSchema:
+        call: SchemaValidation
+        args:
+          uri: ${uri}
+        result: schemaStatus
+    - check_condition:
+        switch:
+          - condition: ${schemaStatus == "attention"}
+            next: end
+          - condition: ${schemaStatus == "normal"}
+            next: detectDrift
+    - detectDrift:
+        call: DriftDetection
+        args:
+          uri: ${uri}
+          blob: ${blob}
+    - predict:
+        call: BatchPrediction
+        args:
+          bucket: ${bucket}
+          blob: ${blob}
+    - logPredictStatus:
+        call: sys.log
+        args:
+            text: "The prediction is successful"
+            severity: INFO
+
+SchemaValidation:
+  params: [uri]
+  steps:
+    - validate:
+        call: http.post
+        args:
+          url: https://us-central1-mightyhive-data-science-poc.cloudfunctions.net/schema_validation
+          body:
+            uri: ${uri}
+        result: result
+        next: logSchemaStatus
+    - logSchemaStatus:
+        call: sys.log
+        args:
+            text: ${"Schema validation status is " + result.body.status}
+            severity: INFO
+        next: check_condition
+    - check_condition:
+        switch:
+          - condition: ${result.body.status == "attention"}
+            next: logAttentionSatus
+        next: parseResult
+    - logAttentionSatus:
+        call: sys.log
+        args:
+            text: "Schema Violation detected. Notify user via email."
+            severity: INFO
+        next: emailNotification
+    - emailNotification:
+        call: http.post
+        args:
+          url: https://us-central1-mightyhive-data-science-poc.cloudfunctions.net/email_notification
+          body:
+            to: "yang.dai@mediamonks.com"
+            subject: "GCP Alert: Schema validation failure"
+            text: ${result.body.message}
+        next: parseResult
+    - parseResult:
+        return: ${result.body.status}
+
+DriftDetection:
+  params: [uri, blob]
+  steps:
+    - detect:
+        call: http.post
+        args:
+          url: https://us-central1-mightyhive-data-science-poc.cloudfunctions.net/drift_detection
+          body:
+            uri: ${uri}
+        result: result
+        next: logDetectStatus
+    - logDetectStatus:
+        call: sys.log
+        args:
+            text: ${"Drift detection status is " + result.body.status}
+            severity: INFO
+        next: check_condition
+    - check_condition:
+        switch:
+          - condition: ${result.body.status == "attention"}
+            next: logAttentionSatus
+          - condition: ${result.body.status == "normal"}
+            next: logNormalSatus
+    - logNormalSatus:
+        call: sys.log
+        args:
+            text: "No drift is detected. Jump to prediction"
+            severity: INFO
+        next: end
+    - logAttentionSatus:
+        call: sys.log
+        args:
+            text: "Drift detected. Notify user via email."
+            severity: INFO
+        next: emailNotification
+    - emailNotification:
+        call: http.post
+        args:
+          url: https://us-central1-mightyhive-data-science-poc.cloudfunctions.net/email_notification
+          body:
+            to: "yang.dai@mediamonks.com"
+            subject: "GCP Alert: Data drifted detected"
+            text: ${result.body.message}
+        next: logReTrain
+    - logReTrain:
+        call: sys.log
+        args:
+            text: "Start re-training the model"
+            severity: INFO
+        next: trainModel
+    - trainModel:
+        call: http.post
+        args:
+          url: https://us-central1-mightyhive-data-science-poc.cloudfunctions.net/train_model
+          body:
+            blob: ${blob}
+        next: end
+
+BatchPrediction:
+  params: [bucket, blob]
+  steps:
+    - predict:
+        call: http.post
+        args:
+          url: https://us-central1-mightyhive-data-science-poc.cloudfunctions.net/batch_prediction
+          body:
+            bucket: ${bucket}
+            blob: ${blob}
+        next: end

@@ -22,13 +22,13 @@ def main():
     interval = dt.timedelta(days=28)
     start = dt.date(2011, 1, 29)
 
-    for i in range(1, 10):
+    for i in range(1, 15):
         end = start + interval
         dump_serve_data(start, end, BUCKET)
 
         start = start + interval + dt.timedelta(days=1)
         print("Waiting for new serve data")
-        time.sleep(2)
+        time.sleep(20)
 
 
 def dump_serve_data(start: dt.date, end: dt.date, bucket: str):
@@ -38,14 +38,23 @@ def dump_serve_data(start: dt.date, end: dt.date, bucket: str):
     query = (
         f"""
         EXPORT DATA OPTIONS(
-            uri='gs://{bucket}/{blob_name}*.csv',
-            format='CSV',
-            overwrite=true,
-            header=true
+          uri='gs://{bucket}/{blob_name}*.csv',
+          format='CSV',
+          overwrite=true,
+          header=true
         ) AS
 
         SELECT
-          *
+          datetime,
+          temp,
+          atemp,
+          humidity,
+          windspeed,
+          season,
+          holiday,
+          workingday,
+          EXTRACT(DAYOFWEEK FROM datetime) AS weekday,
+          EXTRACT(HOUR FROM datetime) AS hour,
         FROM
           `{PROJECT}.{DATASET}.bike_sharing`
         WHERE
